@@ -13,6 +13,7 @@ import subprocess
 import h5py
 import numpy as np
 
+import common
 from constants import PREFIX, ADU_PER_PHOTON, VDS_DATASET
 from constants import MASK_FNAME, BAD_CELLIDS
 
@@ -127,7 +128,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description='Lit pixel calculator')
     parser.add_argument('run', type=int, help='Run number')
-    parser.add_argument('dark_run', type=int, help='Dark run number')
+    parser.add_argument('-d', '--dark_run', type=int, help='Dark run number', default=-1)
     parser.add_argument('-n', '--nproc', 
                         help='Number of processes to use',
                         type=int, default=0)
@@ -146,12 +147,15 @@ def main():
     args = parser.parse_args()
         
     vds_file = PREFIX+'scratch/vds/r%.4d.cxi' %args.run
+    if args.dark_run < 0:
+        args.dark_run = common.get_relevant_dark_run(args.run)
         
     if args.thresholdADU == -100.:
         args.thresholdADU = 0.75 * ADU_PER_PHOTON
 
     print('Calculating lit pixels from', vds_file)
-    l = LitPixels(vds_file, args.dark_run, nproc=args.nproc, thresh=args.thresholdADU, total_intens=args.total_intens)
+    l = LitPixels(vds_file, args.dark_run, nproc=args.nproc,
+                  thresh=args.thresholdADU, total_intens=args.total_intens)
     print('Running on the following modules:', args.module)
     
     litpixels = np.array([l.run_module(module) for module in args.module])
