@@ -1,4 +1,4 @@
-import os
+import os.path as op
 import glob
 
 import numpy as np
