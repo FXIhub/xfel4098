@@ -16,7 +16,6 @@ from constants import PREFIX, DET_NAME, CHUNK_SIZE
 
 # the bad modules (4,5,6,7) are not written to file
 BAD_MODULES = (4,5,6,7)
-# TODO: Check whether these modules are still missing in p4098
 
 class ProcDarks():
     def __init__(self, run_num, out_fname, mask_only=False):
@@ -47,11 +46,11 @@ class ProcDarks():
         np_marray = np.frombuffer(marray.get_obj(), dtype='f8').reshape(num_files,16,num_cells,128,512)
         np_sarray = np.frombuffer(sarray.get_obj(), dtype='f8').reshape(num_files,16,num_cells,128,512)
         np_numarray = np.frombuffer(numarray.get_obj(), dtype='i4').reshape(num_files,16,num_cells)
-        
+
         # hack for bad modules
         norm = np_numarray.sum(0)[:,:,np.newaxis,np.newaxis]
         norm[norm==0] = 1
-        
+
         np_marray = (np_marray*np_numarray[:,:,:,np.newaxis,np.newaxis]).sum(0) / norm
         np_sarray = (np_sarray*np_numarray[:,:,:,np.newaxis,np.newaxis]).sum(0) / norm
         np_numarray = np_numarray.sum(0)
@@ -61,13 +60,13 @@ class ProcDarks():
             f['data/sigma'] = np_sarray
             f['data/num'] = np_numarray
             f['data/cellId'] = self.cellids
-    
+
     def calculate_masks(self):
         f = h5py.File(self.out_fname, 'r+')
         mean = f['data/mean'][:]
         sigma = f['data/sigma'][:]
         badpix = np.ones(mean.shape, dtype='u1')
-        
+
         for c in range(mean.shape[1]):
             cmean = mean[:,c]
             # Median and StDev for each cell
@@ -80,7 +79,7 @@ class ProcDarks():
             sel = (np.abs(cmean-medmean) < 3*stdmean)
             medmean = np.median(cmean[sel])
             stdmean = np.std(cmean[sel])
-            
+
             sel = (np.abs(cmean-medmean) < 4*stdmean)
             badpix.transpose(1,0,2,3)[c,sel] = 0
 
@@ -117,13 +116,13 @@ class ProcDarks():
             sigma.fill(0)
             num.fill(0)
             return
-        
+
         stime = time.time()
         with h5py.File(fname, 'r') as f:
             dset = f['INSTRUMENT/'+DET_NAME+'/DET/%dCH0:xtdf/image/data'%module]
             tid = f['INSTRUMENT/'+DET_NAME+'/DET/%dCH0:xtdf/image/trainId'%module][:].ravel()
             cid = f['INSTRUMENT/'+DET_NAME+'/DET/%dCH0:xtdf/image/cellId'%module][:].ravel()
-            
+
             num_chunks = int(np.ceil(dset.shape[0] / CHUNK_SIZE))
             for chunk in range(num_chunks):
                 st, en = chunk*CHUNK_SIZE, (chunk+1)*CHUNK_SIZE
@@ -132,8 +131,8 @@ class ProcDarks():
                 curr = self._update_stats(curr, frames, cells)
                 if rank == 0:
                     sys.stderr.write('\r%d/%d chunks in %s (%f frames/s)' % (
-                        chunk+1, num_chunks, 
-                        os.path.basename(fname), 
+                        chunk+1, num_chunks,
+                        os.path.basename(fname),
                         num_files*(chunk+1)*CHUNK_SIZE/(time.time()-stime)))
                     sys.stderr.flush()
                 #if chunk > 20:
