@@ -12,7 +12,7 @@ CHUNK_SIZE = 32
 BAD_CELLIDS = list(range(0,17,2)) + list(range(484,499)) + [810]
 ADU_PER_PHOTON = 5.
 
-MASK_FNAME = PREFIX + 'geom/badpixel_mask_p2601.h5'
+MASK_FNAME = PREFIX + 'geom/badpixel_mask_r0010.h5'
 
 XGM_DA_NUM = 1
 XGM_DATASET = "INSTRUMENT/SQS_DIAG1_XGMD/XGM/DOOCS:output/data/intensitySa3TD"
