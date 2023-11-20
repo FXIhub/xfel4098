@@ -29,7 +29,7 @@ def main():
     parser.add_argument('-f', '--force', help='Overwrite data if already exists', action='store_true')
     args = parser.parse_args()
 
-    event_fname = PREFIX + '/events/r%.4d_proc_events.h5' % args.run
+    event_fname = PREFIX + '/events/r%.4d_events.h5' % args.run
     with h5py.File(event_fname, 'r') as fptr:
         if not args.force and args.output_dataset in fptr['entry_1']:
             logging.info('%s already exists. Skipping.', args.output_dataset)

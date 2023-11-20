@@ -45,7 +45,7 @@ def main():
     parser.add_argument('-f', '--force', help='Replace existing data if exists', action='store_true')
     args = parser.parse_args()
 
-    outf = h5py.File(PREFIX + '/events/r%.4d_proc_events.h5' % args.run, 'a')
+    outf = h5py.File(PREFIX + '/events/r%.4d_events.h5' % args.run, 'a')
 
     set_values(args.run, XGM_DA_NUM, XGM_DATASET, outf, 'entry_1/pulse_energy_uJ', force=args.force)
 

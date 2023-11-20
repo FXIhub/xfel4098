@@ -26,7 +26,7 @@ else:
 hit_inds = get_thresh.get_hitinds(args.run, thresh, normed=args.norm, verbose=True)
 
 # Write hit indices to events file
-with h5py.File(PREFIX+'events/r%.4d_proc_events.h5'%args.run, 'a') as f:
+with h5py.File(PREFIX+'events/r%.4d_events.h5'%args.run, 'a') as f:
     if 'entry_1/is_hit' in f:
         del f['entry_1/is_hit']
     if 'entry_1/hit_indices' in f:

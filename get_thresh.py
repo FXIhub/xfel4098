@@ -11,7 +11,7 @@ from constants import PREFIX, NCELLS, NPULSES
 
 def _get_litpix(run, normed=False):
     # Get lit pixels
-    with h5py.File(PREFIX+'events/r%.4d_proc_events.h5'%run, 'r') as f:
+    with h5py.File(PREFIX+'events/r%.4d_events.h5'%run, 'r') as f:
         litpix = f['entry_1/litpixels'][:].sum(0)
         if normed:
             xgm = f['entry_1/pulse_energy_uJ'][:]
