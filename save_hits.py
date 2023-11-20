@@ -6,18 +6,22 @@ import multiprocessing as mp
 
 import numpy as np
 import h5py
-from scipy import optimize
 
 import dragonfly
 
 from constants import PREFIX, VDS_DATASET, MODULE_SHAPE, NCELLS, ADU_PER_PHOTON
+import common
 import get_thresh
- 
+
 parser = argparse.ArgumentParser(description='Save hits to emc file')
 parser.add_argument('run', help='Run number', type=int)
+parser.add_argument('-d', '--dark_run', type=int, help='Dark run number', default=-1)
 parser.add_argument('-t', '--thresh', help='Hitscore threshold (default: auto)', type=float, default=-1)
 parser.add_argument('-N', '--norm', help='Normalize hit scores by pulse_energy', action='store_true')
 args = parser.parse_args()
+
+if args.dark_run < 0:
+    args.dark_run = common.get_relevant_dark_run(args.run)
 
 if args.thresh < 0:
     thresh = get_thresh.linearize(get_thresh.get_thresh(args.run, normed=args.norm))
@@ -38,14 +42,19 @@ def worker(module):
     wemc = dragonfly.EMCWriter(PREFIX+'emc/r%.4d_m%.2d.emc' % (args.run, module), 128*512, hdf5=False)
     sys.stdout.flush()
 
+    with h5py.File(PREFIX + 'dark/r%.4d_dark.h5', 'r') as f:
+        offset = f['data/mean'][module]
+    corr = np.zeros(MODULE_SHAPE)
+
     f = h5py.File(PREFIX+'vds/r%.4d.cxi' % args.run, 'r')
+    cell_id = f['entry_1/cellId'][:, module]
     dset = f[VDS_DATASET]
 
     stime = time.time()
 
     for i, ind in enumerate(hit_inds):
-        frame = dset[ind, module]
-        phot = np.clip(np.round(frame/ADU_PER_PHOTON-0.3).astype('i4'), 0, None).ravel()
+        common.calibrate(dset[ind, module], offset[cell_id[ind]], output=corr)
+        phot = np.clip(np.round(corr/ADU_PER_PHOTON-0.3).astype('i4'), 0, None).ravel()
         wemc.write_frame(phot)
         if module == 0 and (i+1) % 10 == 0:
             sys.stderr.write('\rWritten frame %d/%d (%.3f Hz)' % (i+1, len(hit_inds), (i+1)/(time.time()-stime)))
@@ -70,11 +79,11 @@ det.x = det.x.ravel()
 det.y = det.y.ravel()
 emods = [dragonfly.EMCReader(PREFIX+'emc/r%.4d_m%.2d.emc' % (args.run, m), det) for m in range(16)]
 
-wemc = dragonfly.EMCWriter(PREFIX+'emc/r%.4d.emc' % args.run, 1024**2, hdf5=False)
+wemc_all = dragonfly.EMCWriter(PREFIX+'emc/r%.4d.emc' % args.run, 1024**2, hdf5=False)
 stime = time.time()
 for i in range(emods[0].num_frames):
     phot = np.array([emods[m].get_frame(i, raw=True) for m in range(16)]).ravel()
-    wemc.write_frame(phot)
+    wemc_all.write_frame(phot)
 
     if (i+1) % 10 == 0:
         sys.stderr.write('\rWritten frame %d/%d (%.3f Hz)' % (i+1, emods[0].num_frames, (i+1)/(time.time()-stime)))
@@ -82,7 +91,7 @@ for i in range(emods[0].num_frames):
 sys.stderr.write('\n')
 sys.stderr.flush()
 
-wemc.finish_write()
+wemc_all.finish_write()
 
 # Delete module-wise files
 mod_fnames = [PREFIX+'emc/r%.4d_m%.2d.emc' % (args.run, m) for m in range(16)]
