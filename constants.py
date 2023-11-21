@@ -9,7 +9,8 @@ MODULE_SHAPE = (128, 512)
 NPULSES = 400
 NCELLS = 400
 CHUNK_SIZE = 32
-BAD_CELLIDS = list(range(0,17,2)) + list(range(484,499)) + [810]
+#BAD_CELLIDS = list(range(0,17,2)) + list(range(484,499)) + [810]
+BAD_CELLIDS = [810]
 ADU_PER_PHOTON = 5.
 
 MASK_FNAME = PREFIX + 'geom/badpixel_mask_r0010.h5'
