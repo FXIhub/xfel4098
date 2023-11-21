@@ -1,10 +1,17 @@
+import argparse
+parser.add_argument('runs', nargs='+', 
+                    help='list of run numbers',
+                    type=int, default=[23, 24])
+
+args = parser.parse_args()
+
+runs = args.runs
+
 import h5py 
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import extra_data
-
-runs = [23, 24]
 
 from ..constants import *
 
