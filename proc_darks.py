@@ -78,23 +78,31 @@ class ProcDarks():
             cmean = mean[:,c]
             # Median and StDev for each cell
             medmean = np.median(cmean)
-
+             
             sel = (np.abs(cmean-medmean) <= 1000)
             medmean = np.median(cmean[sel])
             stdmean = np.std(cmean[sel])
-
+             
             sel = (np.abs(cmean-medmean) < 3*stdmean)
             medmean = np.median(cmean[sel])
             stdmean = np.std(cmean[sel])
-
+             
             sel = (np.abs(cmean-medmean) < 4*stdmean)
             badpix.transpose(1,0,2,3)[c,sel] = 0
-
+            
+            # mask pixels outside a narrow std range
+            sel = (0.4 < sigma[:, c]) * (sigma[:, c] < 0.8)
+            badpix.transpose(1,0,2,3)[c,sel] = 0
+        
+        badpix = np.sum(badpix, axis=1)>0
         if 'data/badpix' in f:
             del f['data/badpix']
-        f['data/badpix'] = badpix
+        if 'data/goodpix' in f:
+            del f['data/goodpix']
+        f['data/badpix']  = badpix
+        f['data/goodpix'] = ~badpix
         f.close()
-
+    
     def _decode_fstring(self, s, form):
         index = 0
         index_form = 0
