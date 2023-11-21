@@ -6,10 +6,10 @@
 #SBATCH -J litpix
 #SBATCH -o .lit-%4a-%j.out
 #SBATCH -e .lit-%4a-%j.out
-#SBATCH --partition=upex
 
-####SBATCH --partition=upex-beamtime
-####SBATCH --reservation=upex_004098
+#SBATCH --partition=upex-beamtime
+#SBATCH --reservation=upex_004098
+#####SBATCH --partition=upex
 
 PREFIX=/gpfs/exfel/exp/SQS/202302/p004098/
 
