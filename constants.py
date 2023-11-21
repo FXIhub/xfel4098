@@ -6,7 +6,7 @@ VDS_DATASET = '/entry_1/instrument_1/detector_1/data'
 
 DET_NAME = 'SQS_DET_DSSC1M-1'
 MODULE_SHAPE = (128, 512)
-NPULSES = 200
+NPULSES = 400
 NCELLS = 800
 CHUNK_SIZE = 32
 BAD_CELLIDS = list(range(0,17,2)) + list(range(484,499)) + [810]

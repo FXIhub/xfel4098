@@ -1,17 +1,16 @@
-import sys
-import os
-import time
 import argparse
 import multiprocessing as mp
-
-import numpy as np
-import h5py
+import os
+import sys
+import time
 
 import dragonfly
+import h5py
+import numpy as np
 
-from constants import PREFIX, VDS_DATASET, MODULE_SHAPE, NCELLS, ADU_PER_PHOTON
 import common
 import get_thresh
+from constants import ADU_PER_PHOTON, MODULE_SHAPE, NCELLS, PREFIX, VDS_DATASET
 
 parser = argparse.ArgumentParser(description='Save hits to emc file')
 parser.add_argument('run', help='Run number', type=int)
@@ -24,10 +23,11 @@ if args.dark_run < 0:
     args.dark_run = common.get_relevant_dark_run(args.run)
 
 if args.thresh < 0:
-    thresh = get_thresh.linearize(get_thresh.get_thresh(args.run, normed=args.norm))
+    thresh = get_thresh.linearize(get_thresh.get_thresh_all(args.run, normed=args.norm))
 else:
     thresh = np.ones(NCELLS)*args.thresh
 hit_inds = get_thresh.get_hitinds(args.run, thresh, normed=args.norm, verbose=True)
+print(hit_inds)
 
 # Write hit indices to events file
 with h5py.File(PREFIX+'events/r%.4d_events.h5'%args.run, 'a') as f:
@@ -42,7 +42,7 @@ def worker(module):
     wemc = dragonfly.EMCWriter(PREFIX+'emc/r%.4d_m%.2d.emc' % (args.run, module), 128*512, hdf5=False)
     sys.stdout.flush()
 
-    with h5py.File(PREFIX + 'dark/r%.4d_dark.h5', 'r') as f:
+    with h5py.File(PREFIX + 'dark/r%.4d_dark.h5' % args.dark_run, 'r') as f:
         offset = f['data/mean'][module]
     corr = np.zeros(MODULE_SHAPE)
 
@@ -53,7 +53,8 @@ def worker(module):
     stime = time.time()
 
     for i, ind in enumerate(hit_inds):
-        common.calibrate(dset[ind, module], offset[cell_id[ind]], output=corr)
+        # print(dset[ind, module, 0].shape, offset[cell_id[ind]].shape)
+        common.calibrate(dset[ind, module, 0], offset[cell_id[ind]], output=corr)
         phot = np.clip(np.round(corr/ADU_PER_PHOTON-0.3).astype('i4'), 0, None).ravel()
         wemc.write_frame(phot)
         if module == 0 and (i+1) % 10 == 0:
@@ -66,6 +67,8 @@ def worker(module):
     wemc.finish_write()
     f.close()
 
+# worker(1)
+# exit()
 jobs = [mp.Process(target=worker, args=(m,)) for m in range(16)]
 [j.start() for j in jobs]
 [j.join() for j in jobs]
