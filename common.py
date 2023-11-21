@@ -1,9 +1,10 @@
-import os.path as op
 import glob
+import os.path as op
 
 import numpy as np
 
-from constants import PREFIX, MODULE_SHAPE, ADU_PER_PHOTON
+from constants import ADU_PER_PHOTON, MODULE_SHAPE, PREFIX
+
 
 def get_relevant_dark_run(run_num):
     '''Get dark run corresponding to given data run
@@ -22,7 +23,7 @@ def calibrate(raw, offset, output=None):
     Can calibrate individual module or whole detector
     If output is specified, that array will be updated
     '''
-    assert raw.shape == offset.shape
+    assert raw.shape == offset.shape, (raw.shape, offset.shape)
     if raw.shape == MODULE_SHAPE:
         return _calibrate_module(raw, offset, output=output)
     elif raw.shape == (16,) + MODULE_SHAPE:
@@ -35,7 +36,7 @@ def calibrate(raw, offset, output=None):
         raise ValueError('Unknown data shape: %s' % (raw.shape))
 
 def _calibrate_module(raw, offset, output=None):
-    if output is not None :
+    if output is not None:
         output[:] = raw - offset
     else:
         output = raw - offset

@@ -1,13 +1,13 @@
-import sys
-import os
 import argparse
+import os
+import sys
 
-import numpy as np
 import h5py
-from scipy import optimize
-from scipy import ndimage
+import numpy as np
+from scipy import ndimage, optimize
 
-from constants import PREFIX, NCELLS, NPULSES
+from constants import NCELLS, PREFIX
+
 
 def _get_litpix(run, normed=False):
     # Get lit pixels
@@ -21,7 +21,40 @@ def _get_litpix(run, normed=False):
             litpix = litpix / xgm
             litpix -= ndimage.median_filter(litpix.reshape(-1,NCELLS), (50,5)).ravel()
 
-    return litpix.reshape(-1,NCELLS)[:,:NPULSES]
+    return litpix.reshape(-1,NCELLS)
+
+def get_thresh_all(run, return_litpix=False, normed=False, verbose=False):
+    sel_litpix = _get_litpix(run, normed=normed)
+
+    # Get hit indices
+    def gaussian(x, a, x0, sigma):
+        return a * np.exp(-(x-x0)**2 / 2 / sigma**2)
+
+    binvals = np.arange(-1,1,0.001) if normed else np.arange(100,10000,10)
+    chists = np.array([np.histogram(sel_litpix[:,i], bins=binvals)[0] for i in range(NCELLS)])
+    hcen = (binvals[1:] + binvals[:-1]) * 0.5
+    thresh = np.ones(NCELLS) * -100.
+    hcen = np.concatenate([hcen] * thresh.shape[0])
+    indices = np.argsort(hcen)
+    hcen = hcen[indices]
+    hy = chists.ravel()[indices]
+    xmax = np.abs(binvals).argmin() if normed else hy.argmax() + 1 # Ignoring first bin
+    try:
+        p0_std = 0.01 if normed else 100
+        popt, pcov = optimize.curve_fit(gaussian,
+                                        hcen, hy,
+                                        p0=(hy.max(), hcen[xmax], p0_std))
+        thresh[:] = popt[1] + 4*np.abs(popt[2])
+        if verbose:
+            print('Fitted background Gaussian: %.3f +- %.3f' % (popt[1], popt[2]))
+    except RuntimeError:
+        print('Fitting failed for cell %d' % i)
+    except ValueError:
+        print('Fitting failed for cell %d' % i)
+
+    if return_litpix:
+        return thresh, sel_litpix
+    return thresh
 
 def get_thresh(run, return_litpix=False, normed=False, verbose=False):
     sel_litpix = _get_litpix(run, normed=normed)
@@ -40,6 +73,7 @@ def get_thresh(run, return_litpix=False, normed=False, verbose=False):
         xmax = np.abs(binvals).argmin() if normed else hy[1:].argmax() + 1 # Ignoring first bin
         try:
             p0_std = 0.01 if normed else 100
+            # print(hcen, hy)
             popt, pcov = optimize.curve_fit(gaussian,
                                             hcen[1:xmax], hy[1:xmax],
                                             p0=(hy.max(), hcen[xmax], p0_std))
@@ -48,6 +82,8 @@ def get_thresh(run, return_litpix=False, normed=False, verbose=False):
             if verbose:
                 print('Fitted background Gaussian: %.3f +- %.3f' % (popt[1], popt[2]))
         except RuntimeError:
+            print('Fitting failed for cell %d' % i)
+        except ValueError:
             print('Fitting failed for cell %d' % i)
 
     if return_litpix:
@@ -81,7 +117,7 @@ def main():
     parser.add_argument('-N', '--norm', help='Normalize by pulse energy', action='store_true')
     args = parser.parse_args()
 
-    thresh, litpix = get_thresh(args.run, normed=args.norm, verbose=True, return_litpix=True)
+    thresh, litpix = get_thresh_all(args.run, normed=args.norm, verbose=True, return_litpix=True)
     linthresh = linearize(thresh, verbose=True)
     hitinds = get_hitinds(args.run, linthresh, litpix=litpix, normed=args.norm, verbose=True)
 
