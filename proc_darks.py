@@ -64,6 +64,7 @@ class ProcDarks():
             f['data/num'] = np_numarray
             f['data/cellId'] = self.cellids
             f['data/gain'] = self.gain
+            f['data/det_conf_fnam'] = self.conf_fnam
             f['data/frequency'] = self.frequency
             f['data/integration_time'] = self.integration_time
 
@@ -134,6 +135,7 @@ class ProcDarks():
         self.gain             = float(out['gain'])
         self.frequency        = 1e-6 * float(out['frequency'])
         self.integration_time = 1e-9 * float(out['integration_time'])
+        self.conf_fnam        = fnam
     
         return out
 
