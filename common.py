@@ -31,7 +31,7 @@ def calibrate(raw, offset, output=None):
             [_calibrate_module(raw[i], offset[i], output=output[i]) for i in range(16)]
             return output
         else:
-            return np.array([_calibrate_module(raw[i], offset[i], output=output[i]) for i in range(16)])
+            return np.array([_calibrate_module(raw[i], offset[i]) for i in range(16)])
     else:
         raise ValueError('Unknown data shape: %s' % (raw.shape))
 
