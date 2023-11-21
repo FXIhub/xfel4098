@@ -11,8 +11,9 @@ import multiprocessing as mp
 import ctypes
 import numpy as np
 import h5py
+import extra_data 
 
-from constants import PREFIX, DET_NAME, CHUNK_SIZE
+from constants import PREFIX, DET_NAME, CHUNK_SIZE, PROPOSAL
 
 # the bad modules (4,5,6,7) are not written to file
 BAD_MODULES = (4,5,6,7)
@@ -22,8 +23,10 @@ class ProcDarks():
         self.run_num = run_num
         self.out_fname = out_fname
         self.mask_only = mask_only
-
+        
         self._get_cellids()
+        
+        self._get_gain_frequency_integration_time(PROPOSAL, run_num)
 
     def run(self):
         if self.mask_only:
@@ -60,6 +63,9 @@ class ProcDarks():
             f['data/sigma'] = np_sarray
             f['data/num'] = np_numarray
             f['data/cellId'] = self.cellids
+            f['data/gain'] = self.gain
+            f['data/frequency'] = self.frequency
+            f['data/integration_time'] = self.integration_time
 
     def calculate_masks(self):
         f = h5py.File(self.out_fname, 'r+')
@@ -87,6 +93,49 @@ class ProcDarks():
             del f['data/badpix']
         f['data/badpix'] = badpix
         f.close()
+
+    def _decode_fstring(self, s, form):
+        index = 0
+        index_form = 0
+        out = {}
+        for z in range(5):
+            i = form.find('{', index_form)
+            j = form.find('}', index_form)
+
+            start = form[index_form + 1 : i]
+            end   = form[j + 1 : form.find('{', j)]
+             
+            key = form[i + 1 : j]
+            index_form = j+1
+
+            if i == -1 :
+                break
+
+            i = s.find(start, index)
+            j = s.find(end, index)
+            value = s[i + len(start) : j]
+        
+            index = j
+
+            out[key] = value
+
+        return out
+
+    def _get_gain_frequency_integration_time(self, proposal, run_num):
+        run = extra_data.open_run(proposal, run_num)
+        
+        # e.g. fnam = '/scratch/xctrl/karabo/var/data/maia_4098/GenConf_TG2.5_nG12_trimm_f4.5_intgr50/Q1/GenConf_TG2.5_nG12_trimm_f4.5_intgr50_epc.xml'
+        # e.g. fnam = '.../GenConf_TG2.{gain}_nG{n}_trimm_f{frequency}_intgr{integration_time}_epc.xml'
+        fnam = run.get_run_value('SQS_NQS_DSSC/FPGA/PPT_Q1', 'epcRegisterFilePath.value').split('/')[-1]
+        form = 'GenConf_TG2.{gain}_nG{n}_trimm_f{frequency}_intgr{integration_time}_epc.xml'
+        
+        # in ADU per photon (this depends on photon energy)
+        out = self._decode_fstring(fnam, form)
+        self.gain             = float(out['gain'])
+        self.frequency        = 1e-6 * float(out['frequency'])
+        self.integration_time = 1e-9 * float(out['integration_time'])
+    
+        return out
 
     def _get_cellids(self):
         fname = PREFIX+'/raw/r%.4d/RAW-R%.4d-DSSC00-S00000.h5'%(self.run_num, self.run_num)

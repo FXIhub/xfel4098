@@ -4,6 +4,7 @@ PREFIX = '/gpfs/exfel/exp/SQS/202302/p004098/scratch/'
 
 VDS_DATASET = '/entry_1/instrument_1/detector_1/data'
 
+PROPOSAL = 4098
 DET_NAME = 'SQS_DET_DSSC1M-1'
 MODULE_SHAPE = (128, 512)
 NPULSES = 100
