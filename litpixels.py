@@ -92,7 +92,7 @@ class LitPixels():
                 vals = f_vds[VDS_DATASET][pmin:pmax, m, 0, :, :128]
 
             # mask bad cells and pixels
-            vals[np.isin(cids, BAD_CELLIDS] = 0
+            vals[np.isin(cids, BAD_CELLIDS)] = 0
             vals *= goodpix
             
             if self.total_intens:
@@ -146,7 +146,7 @@ def main():
                         action='store_true')
     args = parser.parse_args()
         
-    vds_file = PREFIX+'scratch/vds/r%.4d.cxi' %args.run
+    vds_file = PREFIX+'vds/r%.4d.cxi' %args.run
     if args.dark_run < 0:
         args.dark_run = common.get_relevant_dark_run(args.run)
         
