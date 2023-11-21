@@ -10,3 +10,6 @@ export OMPI_MCA_mpi_cuda_support=0
 
 # Add dragonfly stuff to modulepath 
 export MODULEPATH=/home/ayyerkar/.local/modules:$MODULEPATH
+
+# CUDA module for cupy (need to be on GPU node)
+module load cuda/10.2
