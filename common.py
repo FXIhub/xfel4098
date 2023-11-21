@@ -35,7 +35,7 @@ def calibrate(raw, offset, output=None):
         raise ValueError('Unknown data shape: %s' % (raw.shape))
 
 def _calibrate_module(raw, offset, output=None):
-    if output:
+    if output is not None :
         output[:] = raw - offset
     else:
         output = raw - offset
