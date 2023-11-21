@@ -18,7 +18,7 @@ def set_values(run, da_num, dset_name, outf, out_dset_name, force=False):
 
     flist = sorted(glob.glob(PREFIX+'/raw/r%.4d/*DA%.2d*.h5'%(run, da_num)))
 
-    with h5py.File(PREFIX + 'vds/proc/r%.4d_proc.cxi'%run, 'r') as f:
+    with h5py.File(PREFIX + 'vds/r%.4d.cxi'%run, 'r') as f:
         vds_tid = f['entry_1/trainId'][:]
         vds_cid = f['entry_1/cellId'][:,0]
 
