@@ -10,7 +10,7 @@ import numpy as np
 
 import common
 import get_thresh
-from constants import ADU_PER_PHOTON, MODULE_SHAPE, NCELLS, PREFIX, VDS_DATASET
+from constants import ADU_PER_PHOTON, MODULE_SHAPE, PREFIX, VDS_DATASET
 
 parser = argparse.ArgumentParser(description='Save hits to emc file')
 parser.add_argument('run', help='Run number', type=int)
@@ -25,7 +25,7 @@ if args.dark_run < 0:
 if args.thresh < 0:
     thresh = get_thresh.linearize(get_thresh.get_thresh_all(args.run, normed=args.norm))
 else:
-    thresh = np.ones(NCELLS)*args.thresh
+    thresh = np.ones(get_thresh.get_ncells(args.run))*args.thresh
 hit_inds = get_thresh.get_hitinds(args.run, thresh, normed=args.norm, verbose=True)
 print(hit_inds)
 
