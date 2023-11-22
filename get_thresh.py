@@ -6,7 +6,8 @@ import h5py
 import numpy as np
 from scipy import ndimage, optimize
 
-from constants import NCELLS, PREFIX, NPULSES
+from constants import NCELLS, NPULSES, PREFIX
+
 LOCAL_SUBT = False
 
 def _get_litpix(run, normed=False):
@@ -36,7 +37,7 @@ def get_thresh_all(run, return_litpix=False, normed=False, verbose=False):
     if LOCAL_SUBT:
         binvals = np.arange(-1,10,0.01) if normed else np.arange(100,10000,10)
     else:
-        binvals = np.arange(0.01,10,0.01) if normed else np.arange(100,10000,10)
+        binvals = np.arange(sel_litpix.mean() * 0.1,10,0.01) if normed else np.arange(100,10000,10)
     hy = np.histogram(sel_litpix.ravel(), bins=binvals)[0]
     hcen = (binvals[1:] + binvals[:-1]) * 0.5
     thresh = np.ones(NCELLS) * -100.
