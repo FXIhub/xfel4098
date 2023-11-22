@@ -55,7 +55,8 @@ def worker(module):
     for i, ind in enumerate(hit_inds):
         # print(dset[ind, module, 0].shape, offset[cell_id[ind]].shape)
         common.calibrate(dset[ind, module, 0], offset[cell_id[ind]], output=corr)
-        phot = np.clip(np.round(corr/ADU_PER_PHOTON-0.3).astype('i4'), 0, None).ravel()
+        # phot = np.clip(np.round(corr/ADU_PER_PHOTON-0.3).astype('i4'), 0, None).ravel()
+        phot = corr.astype('i4').ravel()
         wemc.write_frame(phot)
         if module == 0 and (i+1) % 10 == 0:
             sys.stderr.write('\rWritten frame %d/%d (%.3f Hz)' % (i+1, len(hit_inds), (i+1)/(time.time()-stime)))
@@ -67,8 +68,6 @@ def worker(module):
     wemc.finish_write()
     f.close()
 
-# worker(1)
-# exit()
 jobs = [mp.Process(target=worker, args=(m,)) for m in range(16)]
 [j.start() for j in jobs]
 [j.join() for j in jobs]
