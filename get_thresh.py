@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from typing import NamedTuple
 
 import h5py
 import numpy as np
@@ -27,8 +28,16 @@ def _get_litpix(run, normed=False):
 
     return litpix.reshape(-1,NCELLS)
 
+class GetThresholds(NamedTuple):
+    thresh: np.ndarray
+    litpix: np.ndarray
+    sel_litpix: np.ndarray
+    hcen: np.ndarray
+    hy: np.ndarray
+
 def get_thresh_all(run, return_litpix=False, normed=False, verbose=False):
-    sel_litpix = _get_litpix(run, normed=normed)[:,:NPULSES]
+    litpix = _get_litpix(run, normed=normed)
+    sel_litpix = litpix[:,:NPULSES]
 
     # Get hit indices
     def gaussian(x, a, x0, sigma):
@@ -37,7 +46,7 @@ def get_thresh_all(run, return_litpix=False, normed=False, verbose=False):
     if LOCAL_SUBT:
         binvals = np.arange(-1,10,0.01) if normed else np.arange(100,10000,10)
     else:
-        binvals = np.arange(sel_litpix.mean() * 0.1,10,0.01) if normed else np.arange(100,10000,10)
+        binvals = np.arange(max(0.1,sel_litpix.mean() * 0.2),10,0.01) if normed else np.arange(100,10000,10)
     hy = np.histogram(sel_litpix.ravel(), bins=binvals)[0]
     hcen = (binvals[1:] + binvals[:-1]) * 0.5
     thresh = np.ones(NCELLS) * -100.
@@ -54,9 +63,10 @@ def get_thresh_all(run, return_litpix=False, normed=False, verbose=False):
     except (RuntimeError, ValueError):
         print('Fitting failed')
 
-    if return_litpix:
-        return thresh, sel_litpix
-    return thresh
+    return GetThresholds(thresh, litpix, sel_litpix, hcen, hy)
+    # if return_litpix:
+    #     return thresh, sel_litpix
+    # return thresh
 
 def get_thresh(run, return_litpix=False, normed=False, verbose=False):
     sel_litpix = _get_litpix(run, normed=normed)
@@ -91,14 +101,14 @@ def get_thresh(run, return_litpix=False, normed=False, verbose=False):
         return thresh, sel_litpix
     return thresh
 
-def linearize(thresh, verbose=False):
-    sel = (thresh > -100)
+def linearize(thresh_res, verbose=False):
+    sel = (thresh_res.thresh > -100)
     if sel.shape[0] == 352:
         sel[0] = False
     if verbose:
         print('%d cells used for fitting' % sel.sum())
     xvals = np.arange(NCELLS)
-    fit = np.polyfit(xvals[sel], thresh[sel], 1)
+    fit = np.polyfit(xvals[sel], thresh_res.thresh[sel], 1)
     #fit = np.polyfit(xvals[sel], thresh[sel], 2)
     if verbose:
         print('Fit parameters:', fit)
@@ -118,6 +128,7 @@ def main():
     parser = argparse.ArgumentParser(description='Save hits to emc file')
     parser.add_argument('run', help='Run number', type=int)
     parser.add_argument('-N', '--norm', help='Normalize by pulse energy', action='store_true')
+    parser.add_argument('--plot', help='plot result', action='store_true')
     parser.add_argument('--ncells', help='Override constant NCELLS', type=int)
     parser.add_argument('--npulses', help='Override constant NPULSES', type=int) 
     args = parser.parse_args()
@@ -126,10 +137,21 @@ def main():
         NCELLS = args.ncells
     if args.npulses is not None:
         NPULSES = args.npulses
-    thresh = get_thresh_all(args.run, normed=args.norm, verbose=True, return_litpix=False)
-    linthresh = linearize(thresh, verbose=True)
+    thresh_res = get_thresh_all(args.run, normed=args.norm, verbose=True, return_litpix=False)
+    if args.plot:
+        import matplotlib.pyplot as plt
+
+        fig, axarr = plt.subplots(2, 1, figsize=(8,8))
+        axarr[0].set_title('Run %d' % args.run)
+        axarr[0].plot(thresh_res.hcen, thresh_res.hy)
+        axarr[1].imshow(thresh_res.litpix.reshape(-1, 800).T)
+        axarr[1].set_xlabel("trains")
+        axarr[1].set_ylabel("cell")
+        plt.tight_layout()
+        plt.show()
+
+    linthresh = linearize(thresh_res, verbose=True)
     hitinds = get_hitinds(args.run, linthresh, normed=args.norm, verbose=True)
-    #print(np.unique(hitinds%NCELLS, return_counts=True))
 
 if __name__ == '__main__':
     main()
