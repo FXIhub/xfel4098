@@ -29,7 +29,9 @@ def set_values(run, da_num, dset_name, outf, out_dset_name, force=False):
     for fname in flist:
         with h5py.File(fname, 'r') as f:
             da_tid = f[da_tid_dset_name][:]
-            vals = np.insert(f[dset_name][:], 0, 0, axis=1)
+            # AGIPD hack for empty cell ID 0
+            #vals = np.insert(f[dset_name][:], 0, 0, axis=1)
+            vals = f[dset_name][:]
 
         for i, tid in enumerate(da_tid):
             pos = np.where(vds_tid == tid)[0]
