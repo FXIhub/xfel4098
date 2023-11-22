@@ -19,20 +19,16 @@ from constants import DCONF_DA_NUM, DCONF_DATASET
 BAD_MODULES = (4,5,6,7)
 
 class ProcDarks():
-    def __init__(self, run_num, out_fname, mask_only=False):
+    def __init__(self, run_num, out_fname, mask=False):
         self.run_num = run_num
         self.out_fname = out_fname
-        self.mask_only = mask_only
+        self.mask = mask
         
         self._get_cellids()
         
         self._get_gain_frequency_integration_time()
 
     def run(self):
-        if self.mask_only:
-            self.calculate_masks()
-            return
-
         num_files = len(glob.glob(PREFIX + '/raw/r%.4d/*DSSC00*.h5'%self.run_num))
         print(num_files, 'files per module in run', self.run_num)
         sys.stdout.flush()
@@ -67,6 +63,10 @@ class ProcDarks():
             f['data/det_conf_fnam'] = self.conf_fnam
             f['data/frequency'] = self.frequency
             f['data/integration_time'] = self.integration_time
+
+        if self.mask:
+            self.calculate_masks()
+            return
 
     def calculate_masks(self):
         f = h5py.File(self.out_fname, 'r+')
@@ -220,7 +220,7 @@ def main():
     if args.out_fname is None:
         args.out_fname = PREFIX + 'dark/r%.4d_dark.h5'%args.run
 
-    proc = ProcDarks(args.run, out_fname=args.out_fname, mask_only=args.mask)
+    proc = ProcDarks(args.run, out_fname=args.out_fname, mask=args.mask)
     proc.run()
 
 if __name__ == '__main__':
