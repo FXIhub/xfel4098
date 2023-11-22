@@ -17,7 +17,7 @@
 source /etc/profile.d/modules.sh
 module load exfel exfel-python
 
-MAX_FRAMES=100000000
+MAX_FRAMES=250000
 
 python ../powder.py ${SLURM_ARRAY_TASK_ID} -n ${MAX_FRAMES}
 
