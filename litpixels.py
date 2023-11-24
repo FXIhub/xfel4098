@@ -134,7 +134,7 @@ def main():
                         type=int, default=0)
     parser.add_argument('-m', '--module', nargs='+', 
                         help='Run on only these modules',
-                        type=int, default=[2,9,14])
+                        type=int, default=[0,8,15])
     parser.add_argument('-t', '--thresholdADU',
                         help='ADU threshold for lit pixel',
                         type=float, default=-100.)
