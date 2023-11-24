@@ -10,7 +10,7 @@ from scipy import ndimage, optimize
 
 from constants import NPULSES, PREFIX
 
-LOCAL_SUBT = False
+LOCAL_SUBT = True
 
 @lru_cache(maxsize=32)
 def get_ncells(run):
@@ -54,7 +54,7 @@ def get_thresh_all(run, return_litpix=False, normed=False, verbose=False):
     if LOCAL_SUBT:
         binvals = np.arange(-1,10,0.01) if normed else np.arange(100,10000,10)
     else:
-        binvals = np.arange(max(0.1,sel_litpix.mean() * 0.2),10,0.01) if normed else np.arange(100,10000,10)
+        binvals = np.arange(max(0.01,sel_litpix.mean() * 0.2),2,0.001) if normed else np.arange(100,10000,10)
     hy = np.histogram(sel_litpix.ravel(), bins=binvals)[0]
     hcen = (binvals[1:] + binvals[:-1]) * 0.5
     thresh = np.ones(get_ncells(run)) * -100.
@@ -149,7 +149,7 @@ def main():
         fig, axarr = plt.subplots(2, 1, figsize=(8,8))
         axarr[0].set_title('Run %d' % args.run)
         axarr[0].plot(thresh_res.hcen, thresh_res.hy)
-        axarr[1].imshow(thresh_res.litpix.reshape(-1, get_ncells(args.run)).T)
+        axarr[1].imshow(thresh_res.litpix.reshape(-1, get_ncells(args.run)).T, vmax=thresh_res.litpix.mean()*2)
         axarr[1].set_xlabel("trains")
         axarr[1].set_ylabel("cell")
         plt.tight_layout()
