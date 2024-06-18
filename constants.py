@@ -15,7 +15,9 @@ CHUNK_SIZE = 32
 BAD_CELLIDS = [810]
 ADU_PER_PHOTON = 5.
 
-MASK_FNAME = PREFIX + 'geom/badpixel_background_mask_r0328.h5'
+MASK_FNAME = PREFIX + '/geom/badpixel_background_mask_r0328.h5'
+GAIN_FNAME = PREFIX + '/geom/gain_columns.npy'
+CELLID_FNAME = PREFIX + '/geom/cellids_725.npy'
 
 XGM_DA_NUM = 1
 XGM_DATASET = "INSTRUMENT/SQS_DIAG1_XGMD/XGM/DOOCS:output/data/intensitySa3TD"
