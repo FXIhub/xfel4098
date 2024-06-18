@@ -4,8 +4,8 @@
 #SBATCH --time=04:00:00
 #SBATCH --export=ALL
 #SBATCH -J powder
-#SBATCH -o .powder-%A_%a.out
-#SBATCH -e .powder-%A_%a.out
+#SBATCH -o .powder-%4a-%j.out
+#SBATCH -e .powder-%4a-%j.out
 
 #SBATCH --partition=upex-beamtime
 #SBATCH --reservation=upex_004098
