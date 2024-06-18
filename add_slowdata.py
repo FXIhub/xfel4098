@@ -26,27 +26,29 @@ def main():
     parser.add_argument('da_num', help='DA file number in raw data', type=int)
     parser.add_argument('value_dataset', help='Dataset name in raw DA data')
     parser.add_argument('output_name', help='Output dataset name in events file (eg. pp_delay_ps for pump-probe delay)')
+    parser.add_argument('--is_adhoc_file', help='Data in ADHOC file rather than DA', action='store_true')
     parser.add_argument('-f', '--force', help='Overwrite data if already exists', action='store_true')
     args = parser.parse_args()
 
     event_fname = PREFIX + '/events/r%.4d_events.h5' % args.run
     with h5py.File(event_fname, 'r') as fptr:
-        if not args.force and args.output_dataset in fptr['entry_1']:
-            logging.info('%s already exists. Skipping.', args.output_dataset)
+        if not args.force and args.output_name in fptr['entry_1']:
+            logging.info('%s already exists. Skipping.', args.output_name)
             return
 
-    glob_str = PREFIX + '/raw/r%.4d/RAW-R%.4d-DA%.2d-S*.h5' % (args.run, args.run, args.da_num)
+    ftype = 'DA' if not args.is_adhoc_file else 'ADHOC'
+    glob_str = PREFIX + '/raw/r%.4d/RAW-R%.4d-%s%.2d-S*.h5' % (args.run, args.run, ftype, args.da_num)
     raw_data_files = sorted(glob.glob(glob_str))
     smap = read_slowdata_map(raw_data_files, args.value_dataset)
 
-    logging.info('Writing to %s/entry_1/%s', event_fname, args.output_dataset)
+    logging.info('Writing to %s/entry_1/%s', event_fname, args.output_name)
     with h5py.File(event_fname, 'a') as fptr:
         values = np.array([smap[train] for train in fptr['/entry_1/trainId'][...]])
 
-        if args.output_dataset in fptr['entry_1']:
+        if args.output_name in fptr['entry_1']:
             logging.warning('The output dataset exists, replacing it.')
-            del fptr['entry_1'][args.output_dataset]
-        fptr['entry_1'][args.output_dataset] = values
+            del fptr['entry_1'][args.output_name]
+        fptr['entry_1'][args.output_name] = values
 
 if __name__ == '__main__':
     main()
