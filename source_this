@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Load modules and environment
-module load anaconda3
+module load maxwell mamba
 source activate /gpfs/exfel/exp/SQS/202302/p004098/usr/env
 
 # This variable stops complaints about CUDA not being found by mpirun
@@ -12,4 +12,4 @@ export OMPI_MCA_mpi_cuda_support=0
 export MODULEPATH=/home/ayyerkar/.local/modules:$MODULEPATH
 
 # CUDA module for cupy (need to be on GPU node)
-module load cuda/10.2
+module load cuda/12.1
