@@ -14,11 +14,16 @@ def bin_frame(fr, binning=4):
 def main():
     parser = argparse.ArgumentParser(description='Bin emc hits')
     parser.add_argument('run', help='Run number', type=int)
+    parser.add_argument('-c', '--corr', help='Bin from corr/ folder', action='store_true')
     parser.add_argument('-b', '--binning', help='Binning factor', type=int, default=4)
     args = parser.parse_args()
 
-    det = dragonfly.Detector(PREFIX+'geom/det_4098_v1.h5')
-    emc = dragonfly.EMCReader(PREFIX+'emc/r%.4d.emc'%args.run, det)
+    det = dragonfly.Detector(PREFIX+'geom/det_4098_v4.h5')
+    efolder = PREFIX + 'emc'
+    if args.corr:
+        efolder += '/corr'
+    efolder += '/'
+    emc = dragonfly.EMCReader(efolder+'r%.4d.emc'%args.run, det)
 
     try:
         assert MODULE_SHAPE[0] % args.binning == 0
@@ -28,8 +33,8 @@ def main():
         return 1
 
     bin_npix = 16 * np.prod(MODULE_SHAPE) // args.binning**2
-    os.makedirs(PREFIX+'emc/bin%d' % args.binning, exist_ok=True)
-    wemc = dragonfly.EMCWriter(PREFIX+'emc/bin%d/r%.4d_bin%d.emc' % (args.binning, args.run, args.binning), bin_npix, hdf5=False)
+    os.makedirs(efolder+'bin%d' % args.binning, exist_ok=True)
+    wemc = dragonfly.EMCWriter(efolder+'bin%d/r%.4d_bin%d.emc' % (args.binning, args.run, args.binning), bin_npix, hdf5=False)
 
     for d in range(emc.num_frames):
         mframe = emc.get_frame(d, raw=True) * det.mask
