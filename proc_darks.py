@@ -156,8 +156,6 @@ class ProcDarks():
     def _worker(self, rank, marray, sarray, numarray):
         module = rank % 16
         file_ind = rank // 16
-
-        fname = sorted(glob.glob(PREFIX + '/raw/r%.4d/*DSSC%.2d*.h5'%(self.run_num, module)))[file_ind]
         num_cells = len(self.cellids)
 
         mean = np.frombuffer(marray.get_obj(), dtype='f8').reshape(-1,16,num_cells,128,512)
@@ -173,15 +171,18 @@ class ProcDarks():
             num.fill(0)
             return
 
+        fname = sorted(glob.glob(PREFIX + '/raw/r%.4d/*DSSC%.2d*.h5'%(self.run_num, module)))[file_ind]
+
         stime = time.time()
         with h5py.File(fname, 'r') as f:
             dset = f['INSTRUMENT/'+DET_NAME+'/DET/%dCH0:xtdf/image/data'%module]
             tid = f['INSTRUMENT/'+DET_NAME+'/DET/%dCH0:xtdf/image/trainId'%module][:].ravel()
             cid = f['INSTRUMENT/'+DET_NAME+'/DET/%dCH0:xtdf/image/cellId'%module][:].ravel()
+            nframes = np.where(tid > 0)[0][-1] + 1
 
-            num_chunks = int(np.ceil(dset.shape[0] / CHUNK_SIZE))
+            num_chunks = int(np.ceil(nframes / CHUNK_SIZE))
             for chunk in range(num_chunks):
-                st, en = chunk*CHUNK_SIZE, (chunk+1)*CHUNK_SIZE
+                st, en = chunk*CHUNK_SIZE, min((chunk+1)*CHUNK_SIZE, nframes)
                 cells = self.cell_mask[cid[st:en]]
                 frames = dset[st:en,0,:,:].astype('f4')
                 curr = self._update_stats(curr, frames, cells)
