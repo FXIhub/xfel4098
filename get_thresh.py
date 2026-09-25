@@ -132,10 +132,10 @@ def get_hitinds(run, thresh, litpix=None, normed=False, verbose=False):
         print('%d hits using a threshold range of %.3f - %.3f (%.2f %%)' % (len(hit_inds), thresh.min(), thresh.max(), len(hit_inds) / litpix.size * 100))
     return hit_inds
 
-def get_integ_flag(thresh_res):
+def get_integ_flag(thresh_res, nsigma=1):
     popt = thresh_res.popt
-    vmin = popt[1] - popt[2]
-    vmax = popt[1] + popt[2]
+    vmin = popt[1] - nsigma*popt[2]
+    vmax = popt[1] + nsigma*popt[2]
     litpix = thresh_res.litpix.ravel()
     return ((litpix > vmin) & (litpix < vmax))
 
