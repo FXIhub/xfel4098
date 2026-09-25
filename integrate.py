@@ -31,8 +31,14 @@ class Integrator():
         if flag_file is not None:
             self.have_flag = True
             with h5py.File(flag_file, 'r') as f:
-                self.flags = f['entry_1/do_integrate'][:].astype(np.bool)
-            good_cells = np.array(selector.tolist()*(len(self.flags)//len(selector)))
+                self.flags = f['entry_1/do_integrate'][:].astype('bool')
+            frame_cell_inds = np.arange(len(self.flags)) % self.num_cells
+            valid_cell_inds = frame_cell_inds < len(self.cid_order)
+            frame_cells = np.zeros(len(self.flags), dtype=self.cid_order.dtype)
+            frame_cells[valid_cell_inds] = self.cid_order[frame_cell_inds[valid_cell_inds]]
+            good_cells = np.zeros(len(self.flags), dtype='bool')
+            valid_cells = valid_cell_inds & (frame_cells < len(selector))
+            good_cells[valid_cells] = selector[frame_cells[valid_cells]]
             self.flags *= good_cells
         else:
             self.have_flag = False
@@ -106,6 +112,20 @@ class Integrator():
         my_portion = np.arange(psize*(rank//16), min(self.num_frames, ((rank//16)+1)*psize))
         #print(rank, my_portion.min(), my_portion.max())
 
+        def log(msg):
+            sys.stderr.write('Rank %04d module %02d block %03d: %s\n' % (rank, my_module, rank//16, msg))
+            sys.stderr.flush()
+
+        if len(my_portion) > 0:
+            log('assigned frames %d:%d (%d frames)' % (my_portion[0], my_portion[-1]+1, len(my_portion)))
+        else:
+            log('assigned no frames')
+
+        selected_events = -1
+        if self.have_flag:
+            selected_events = self.flags[my_portion].sum()
+            log('%d/%d selected events in assigned block' % (selected_events, len(my_portion)))
+
         if self.do_raw:
             with h5py.File(PREFIX + 'dark/r%.4d_dark.h5'%self.dark_run, 'r') as f:
                 dark = f['data/mean'][my_module,:,:,:]
@@ -121,45 +141,65 @@ class Integrator():
         my_counts = np.zeros((16,)+MODULE_SHAPE, dtype='i4')
 
         stime = time.time()
+        last_progress_log = stime
+        read_time = 0.
+        compute_time = 0.
+        input_frames = 0
+        processed_frames = 0
 
         for chunk in range(num_chunks):
             st = chunk*CHUNK_SIZE
             en = min(len(my_portion), (chunk+1)*CHUNK_SIZE)
             chunk_ind = my_portion[st:en]
+            if len(chunk_ind) == 0:
+                continue
             if self.have_flag:
                 chunk_ind = chunk_ind[self.flags[chunk_ind]]
                 if len(chunk_ind) == 0:
                     continue
+            input_frames += len(chunk_ind)
             cells = self.cid_order[chunk_ind % self.num_cells]
             if not self.have_flag and self.good_cells[cells].sum() == 0:
                 continue
 
             my_mask = self.mask[cells, my_module]
             if self.do_raw:
+                t0 = time.time()
                 fr = self.dset_vds[chunk_ind, my_module, 0, :, :]
+                read_time += time.time() - t0
+                t0 = time.time()
                 fr = fr.astype('f4') - dark[cells]
                 if not self.have_flag:
-                    fr = fr[self.good_cells[cells]]
-                    my_mask = my_mask[self.good_cells[cells]]
-                fr_tmp = np.copy(fr)
-                fr = fr[~np.all(fr<0, axis=(1,2))]
-                my_mask = my_mask[~np.all(fr_tmp<0, axis=(1,2))]
+                    good = self.good_cells[cells]
+                    fr = fr[good]
+                    my_mask = my_mask[good]
+                    cells = cells[good]
+                valid = ~np.all(fr<0, axis=(1,2))
+                fr = fr[valid]
+                my_mask = my_mask[valid]
+                cells = cells[valid]
             else:
+                t0 = time.time()
                 fr = self.dset_vds[chunk_ind, my_module, :, :]
+                read_time += time.time() - t0
+                t0 = time.time()
 
                 if not self.have_flag:
-                    fr = fr[self.good_cells[cells]]
-                    my_mask = my_mask[self.good_cells[cells]]
-                fr_tmp = np.copy(fr)
-                fr = fr[~np.all(np.isnan(fr), axis=(1,2))]
-                my_mask = my_mask[~np.all(np.isnan(fr_tmp), axis=(1,2))]
+                    good = self.good_cells[cells]
+                    fr = fr[good]
+                    my_mask = my_mask[good]
+                    cells = cells[good]
+                valid = ~np.all(np.isnan(fr), axis=(1,2))
+                fr = fr[valid]
+                my_mask = my_mask[valid]
+                cells = cells[valid]
             if fr.shape[0] == 0:
                 continue
 
             try:
                 phot = np.ceil(fr/mygain - relthresh[cells]).astype('i4')
             except ValueError:
-                print('\nInconsistent shape:', fr.shape, relthresh[cells].shape)
+                log('Inconsistent shape: chunk=%d input=%d cells=%d fr=%s relthresh=%s' % (chunk, len(chunk_ind), len(cells), fr.shape, relthresh[cells].shape))
                 continue
             phot[phot<0] = 0
             try:
@@ -170,12 +210,30 @@ class Integrator():
             my_powder[my_module] += phot.sum(0)
             #my_counts[my_module] += phot.shape[0]
             my_counts[my_module] += phot.shape[0] - my_mask.sum(0) 
+            processed_frames += phot.shape[0]
+            compute_time += time.time() - t0
             if rank == 4:
                 sys.stderr.write('\r%d/%d (%f Hz)' % (chunk+1, num_chunks, (nproc//16)*(chunk+1)*CHUNK_SIZE/(time.time()-stime)))
                 sys.stderr.flush()
+            if time.time() - last_progress_log > 60.:
+                log('progress chunk %d/%d input=%d processed=%d elapsed=%.2fs' % (chunk+1, num_chunks, input_frames, processed_frames, time.time()-stime))
+                last_progress_log = time.time()
 
-        sys.stderr.write('Rank %d: Reducing\n' % rank)
-        sys.stderr.flush()
+        process_time = time.time() - stime
+        log('finished processing: chunks=%d input=%d processed=%d read=%.2fs compute=%.2fs total=%.2fs' % (num_chunks, input_frames, processed_frames, read_time, compute_time, process_time))
+
+        my_stats = np.array([rank, my_module, rank//16, len(my_portion), selected_events, input_frames, processed_frames, read_time, compute_time, process_time], dtype='f8')
+        log('entering stats gather')
+        all_stats = comm.gather(my_stats, root=0)
+        if rank == 0:
+            all_stats = np.array(all_stats)
+            order = np.argsort(all_stats[:,9])[::-1]
+            sys.stderr.write('Slowest ranks before reduction:\n')
+            for row in all_stats[order[:min(20, len(order))]]:
+                sys.stderr.write('rank=%d module=%d block=%d assigned=%d selected=%d input=%d processed=%d read=%.2fs compute=%.2fs total=%.2fs\n' % tuple(row))
+            sys.stderr.flush()
+
+        log('entering reduction')
 
         #self.counts = np.zeros(16, dtype='i4')
         #comm.Reduce(my_counts, self.counts, op=MPI.SUM, root=0)
@@ -186,14 +244,19 @@ class Integrator():
         self.powder = np.zeros((16,) + MODULE_SHAPE, dtype='f8').flatten()
         self.counts = np.zeros((16,) + MODULE_SHAPE, dtype='i4').flatten()
         num_pix = np.prod(MODULE_SHAPE)
+        reduce_start = time.time()
         for m in range(16):
+            t0 = time.time()
             comm.Reduce(my_powder.flatten()[m*num_pix:(m+1)*num_pix], self.powder[m*num_pix:(m+1)*num_pix], op=MPI.SUM, root=0)
+            powder_reduce_time = time.time() - t0
+            t0 = time.time()
             comm.Reduce(my_counts.flatten()[m*num_pix:(m+1)*num_pix],
                         self.counts[m*num_pix:(m+1)*num_pix], op=MPI.SUM, root=0)
+            counts_reduce_time = time.time() - t0
             if rank == 0:
-                sys.stderr.write('Reduced powder %d\n' % m)
-                sys.stderr.write('Reduced counts %d\n' % m)
+                sys.stderr.write('Reduced module %d powder=%.2fs counts=%.2fs\n' % (m, powder_reduce_time, counts_reduce_time))
                 sys.stderr.flush()
+        log('finished reduction in %.2fs' % (time.time() - reduce_start))
 
         if rank == 0:
             self.powder = self.powder.reshape((16,)+MODULE_SHAPE)
